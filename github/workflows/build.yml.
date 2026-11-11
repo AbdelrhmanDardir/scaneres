@@ -1,0 +1,51 @@
+name: Build Android APK
+
+# يشتغل تلقائيًا كل ما ترفع الملفات على GitHub، أو يدويًا من تبويب Actions
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # عشان نقدر ننشر ملف الـ APK في قسم Releases
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build the APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Name the APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk DocScanner.apk
+
+      - name: Keep a copy as a build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: DocScanner-APK
+          path: DocScanner.apk
+
+      - name: Publish a release (direct download link for the phone)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-${{ github.run_number }}" DocScanner.apk \
+            --target "${{ github.sha }}" \
+            --title "DocScanner - build ${{ github.run_number }}" \
+            --notes "Install file: DocScanner.apk" \
+            --latest
